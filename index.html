@@ -278,7 +278,7 @@
                     </div>
                 </div>
 
-                <a id="vip-content-link" href="#" target="_blank" class="w-full py-4 rounded-xl bg-gradient-to-r from-gold-600 via-gold-500 to-amber-300 text-black font-extrabold text-sm uppercase tracking-wider gold-btn-glow hover:brightness-110 transition-all flex items-center justify-center gap-2">
+                <a id="vip-content-link" href="https://t.me/+NjayyyZMgk00MzQx" target="_blank" class="w-full py-4 rounded-xl bg-gradient-to-r from-gold-600 via-gold-500 to-amber-300 text-black font-extrabold text-sm uppercase tracking-wider gold-btn-glow hover:brightness-110 transition-all flex items-center justify-center gap-2">
                     <i class="fa-solid fa-folder-open"></i>
                     <span>Acceder al Contenido Exclusivo</span>
                 </a>
@@ -438,7 +438,7 @@
             title: 'VIP Ultra Premium',
             price: '3.99',
             desc: 'Obtén acceso inmediato e ilimitado a todo el catálogo de contenido exclusivo, videos 4K, fotos HD sin censura y actualizaciones continuas. Pago único sin registro.',
-            contentUrl: 'https://telegram.org'
+            contentUrl: 'https://t.me/+NjayyyZMgk00MzQx'
         };
 
         let pkgConfig = JSON.parse(localStorage.getItem('luxe_pkg_config')) || DEFAULT_CONFIG;
@@ -522,6 +522,7 @@
             document.getElementById('pkg-display-price').innerText = parseFloat(pkgConfig.price).toFixed(2);
             document.getElementById('checkout-pkg-name').innerText = pkgConfig.title;
             document.getElementById('checkout-pkg-price').innerText = '$' + parseFloat(pkgConfig.price).toFixed(2);
+            document.getElementById('vip-content-link').href = pkgConfig.contentUrl;
 
             document.getElementById('admin-pkg-title').value = pkgConfig.title;
             document.getElementById('admin-pkg-price').value = pkgConfig.price;
